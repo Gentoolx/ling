@@ -1,4 +1,4 @@
-# - Config file for the WntrLing package
+# - Configuration file for Wintermute's linguistics (WntrLing)
 # It defines the following variables
 #  WNTRLING_INCLUDE_DIRS - include directories for WntrLing
 #  WNTRLING_LIBRARY_DIRS - library directories for WntrLing (normally not used!)

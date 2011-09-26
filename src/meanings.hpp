@@ -29,99 +29,143 @@
 
 namespace Wintermute {
     namespace Linguistics {
-        struct Meaning;
+    struct Meaning;
 
-        /**
-         * @brief
-         * @typedef OntoMap
-         */
-        typedef QMultiMap<Node*,Link*> OntoMap;
+    /**
+     * @brief Represents a QMultiMap between Node objects and Link objects.
+     * @typedef OntoMap
+     */
+    typedef QMultiMap<Node*,Link*> OntoMap;
 
-        /**
-         * @brief Represents the end-result of linguistics linking and provides an easier means of glancing into the linking process.
-         * @class Meaning parser.hpp "include/wntr/ling/parser.hpp"
-         */
-        class Meaning : public QObject {
-            Q_OBJECT
+    /**
+     * @brief Represents the end-result of linguistics linking.
+     *
+     * The Meaning class does the handy-dandy work of converting a NodeVector
+     * filled with flat Node objects from:
+     *
+     * @dot
+        digraph L {
+                graph [layout=dot rankdir=TB]
 
-            Q_PROPERTY(const Link* base READ base)
-            Q_PROPERTY(const LinkVector* siblings READ siblings)
+                {The book on the table is really red}
+        }
+     * @enddot
+     * into a syntactical bonded sentence, as shown:
+     * @dot
 
-            public:
-                /**
-                 * @brief
-                 *
-                 * @fn Meaning
-                 */
-                Meaning();
-                /**
-                 * @brief
-                 * @fn Meaning
-                 * @param p_lnkVtr
-                 */
-                explicit Meaning(const LinkVector&);
+        digraph M {
+                graph [layout=dot rankdir=LR]
 
-                /**
-                 * @brief
-                 * @fn Meaning
-                 * @param p_mng
-                 */
-                Meaning(const Meaning&);
+                The -> book
+                book -> on -> the
+                the -> table
+                book -> is -> red
+                really -> red
+        }
+     * @enddot
+     *
+     * It uses the Binding and Rule objects to determine which Node goes with which
+     * and modify the linking process. This is where the conversion from natural text
+     * to an intermediate form of ontological syntax is done.
+     *
+     * @see Binding
+     * @see Rule
+     * @class Meaning parser.hpp "include/wntr/ling/parser.hpp"
+     */
+    class Meaning : public QObject {
+        Q_OBJECT
 
-                /**
-                 * @brief
-                 * @fn ~Meaning
-                 */
-                ~Meaning();
+        Q_PROPERTY(const Link* base READ base)
+        Q_PROPERTY(const LinkList* siblings READ siblings)
 
-                /**
-                 * @brief
-                 * @fn base
-                 */
-                Q_INVOKABLE const Link* base() const;
+        public:
+            /**
+             * @brief Empty constructor.
+             * @fn Meaning
+             */
+            Meaning();
 
-                /**
-                 * @brief
-                 * @fn siblings
-                 * @return const LinkVector *
-                 */
-                Q_INVOKABLE const LinkVector* siblings() const;
+            /**
+             * @brief Default constructor.
+             * @fn Meaning
+             * @param p_lnkVtr The LinkList to be incorporated.
+             */
+            explicit Meaning(const LinkList&);
 
-                /**
-                 * @brief
-                 * @fn toText
-                 */
-                const QString toText() const;
+            /**
+             * @brief Copy constructor.
+             * @fn Meaning
+             * @param p_mng The Meaning to be copied.
+             */
+            Meaning(const Meaning&);
 
-                /**
-                 * @brief
-                 * @fn isLinkedTo
-                 * @param
-                 */
-                const LinkVector isLinkedTo(const Node& ) const;
+            /**
+             * @brief Deconstructor.
+             * @fn ~Meaning
+             */
+            ~Meaning();
 
-                /**
-                 * @brief
-                 * @fn isLinkedBy
-                 * @param
-                 */
-                const LinkVector isLinkedBy(const Node& ) const;
+            /**
+             * @brief Obtains the base Link of this Meaning.
+             * @fn base
+             */
+            Q_INVOKABLE const Link* base() const;
 
-                /**
-                 * @brief
-                 *
-                 * @fn form
-                 * @param
-                 * @param
-                 */
-                static const Meaning* form ( LinkVector* , const NodeVector& );
+            /**
+             * @brief Obtains all of the Link objects in this Meaning, excluding the base Link.
+             * @fn siblings
+             * @return A LinkList of every Link but the base Link.
+             */
+            Q_INVOKABLE const LinkList* siblings() const;
 
-            protected:
-                LinkVector m_lnkVtr;
-                OntoMap m_ontoMap;
+            /**
+             * @brief Obtains the textual representation of a Meaning.
+             * @fn toText
+             */
+            const QString toText() const;
 
-            private:
-                void __init();
+            /**
+             * @brief Obtains the number of levels in a Meaning.
+             * @fn levels
+             */
+            const int levels() const;
+
+            /**
+             * @brief Obtains the Link objects at a certain level.
+             * @fn linksAt
+             * @param p_lvl The level to get the Link objects at.
+             */
+            const LinkList linksAt(const int& = 1);
+
+            /**
+             * @brief Obtains a LinkList of Link objects that of which the specified Node is the source.
+             * @fn isLinkedTo
+             * @param p_node The Node in question.
+             */
+            const LinkList isLinkedTo(const Node& ) const;
+
+            /**
+             * @brief Obtains a LinkList of Link objects that of which the specified Node is the destination.
+             * @fn isLinkedBy
+             * @param p_node The Node in question.
+             */
+            const LinkList isLinkedBy(const Node& ) const;
+
+            /**
+             * @brief Forms a Meaning from a LinkList and a NodeList.
+             * @fn form
+             * @param p_lnkLst The list of Link objects.
+             * @param p_nodeLst The list of Node objects.
+             */
+            static const Meaning* form ( LinkList* , const NodeList& );
+
+        protected:
+            LinkList m_lnkVtr;
+            OntoMap m_ontoMap;
+
+        private:
+            void __init();
+            static int s_cnt;
         };
     }
 }
@@ -129,3 +173,4 @@ namespace Wintermute {
 #endif
 
 Q_DECLARE_METATYPE(Wintermute::Linguistics::Meaning)
+// kate: indent-mode cstyle; space-indent on; indent-width 4;
