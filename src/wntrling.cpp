@@ -1,8 +1,8 @@
-/*
+/**
  * wntrling.cpp
  * This file is part of Wintermute Linguistics
  *
- * Copyright (C) 2011 - Jacky Alcine
+ * Copyright (C) 2011 - Wintermute Developers <wintermute-devel@lists.launchpad.net>
  *
  * Wintermute Linguistics is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,15 +19,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
  */
-
-/// @todo Begin work to get exposure to C and Python (using boost::python) happening.
-
 #include "wntrling.hpp"
-#include <string>
-#include <QVector>
-
-extern "C" {
-
-}
 
 // kate: indent-mode cstyle; space-indent on; indent-width 4;

@@ -32,23 +32,44 @@ using namespace Wintermute::Linguistics;
 
 namespace Wintermute {
     namespace Linguistics {
+        int Meaning::s_cnt = 0;
         Meaning::Meaning() { }
 
-        Meaning::Meaning(const LinkVector &p_lnkVtr) : m_lnkVtr(p_lnkVtr) { __init(); }
+        Meaning::Meaning(const LinkList &p_lnkVtr) : m_lnkVtr(p_lnkVtr) {
+            __init();
+        }
 
-        Meaning::Meaning(const Meaning &p_meaning) : m_lnkVtr(p_meaning.m_lnkVtr) { __init(); }
+        Meaning::Meaning(const Meaning &p_meaning) : m_lnkVtr(p_meaning.m_lnkVtr) {
+            __init();
+        }
 
-        const Meaning* Meaning::form ( LinkVector* p_lnkVtr, const NodeVector& p_ndVtr ) {
+        void Meaning::__init() {
+            m_ontoMap.clear();
+
+            foreach (Link* l_lnk, m_lnkVtr) {
+                Node* l_nd = const_cast<Node*>(l_lnk->source ());
+                m_ontoMap.insert(l_nd,l_lnk);
+            }
+
+            qDebug() << "(ling) [Meaning] Encapsulates" << m_ontoMap.uniqueKeys ();
+        }
+
+        const Meaning* Meaning::form ( LinkList* p_lnkVtr, const NodeList& p_ndVtr ) {
+            Meaning::s_cnt++;
             if (p_lnkVtr == NULL)
-                p_lnkVtr = new LinkVector;
+                p_lnkVtr = new LinkList;
 
-            cout << endl << setw(20) << setfill('=') << " " << endl;
-            NodeVector::ConstIterator l_ndItr = p_ndVtr.begin ();
-            NodeVector l_ndVtr;
+            cout << endl << setw(6) << setfill('=') << '=';
+            cout << " Level ";
+            cout << setw(4) << setfill(' ') << right << s_cnt << ' ';
+            cout << setw(6) << setfill('=') << '=' << endl;
+
+            NodeList::ConstIterator l_ndItr = p_ndVtr.begin ();
+            NodeList l_ndVtr;
             QStringList* l_hideList = NULL;
             bool l_hideOther = false, l_hideThis = false;
 
-            if (p_ndVtr.size () != 1){
+            if (p_ndVtr.size () != 1) {
                 for ( ; l_ndItr != p_ndVtr.end (); l_ndItr++ ) {
                     const Node *l_nd, *l_nd2;
                     if ( p_ndVtr.size () == 2 ) {
@@ -58,10 +79,14 @@ namespace Wintermute {
                         if ( ( l_ndItr + 1 ) != p_ndVtr.end () ) {
                             l_nd =  ( * ( l_ndItr ) );
                             l_nd2 = ( * ( l_ndItr + 1 ) );
-                        } else break;
+                        } else {
+                            if (l_ndVtr.size () == 1)
+                                l_ndVtr.push_back (*l_ndItr);
+                            break;
+                        }
                     }
 
-                    if (l_hideList){
+                    if (l_hideList) {
                         const QString l_k(l_nd->toString (Node::EXTRA).c_str ());
                         bool l_b = false;
                         foreach (const QString l_s, *l_hideList)
@@ -84,6 +109,7 @@ namespace Wintermute {
                     const Link* l_lnk;
                     if ( l_bnd ) {
                         l_lnk = l_bnd->bind ( *l_nd,*l_nd2 );
+                        l_lnk->m_lvl = Meaning::s_cnt;
                         p_lnkVtr->push_back ( const_cast<Link*>(l_lnk) );
 
                         QString l_hide = l_bnd->getAttrValue("hide");
@@ -123,22 +149,22 @@ namespace Wintermute {
                             if ( l_hideFilter.contains ( "," ) ) {
                                 QStringList d = l_hideFilter.split ( "," );
                                 foreach ( const QString q, d )
-                                l_e->append ( q );
+                                    l_e->append ( q );
                             } else l_e->append ( l_hideFilter );
 
                             l_hideList = l_e;
                             //qDebug() << "(ling) [Meaning] *** Hiding any nodes that falls into the regex" << l_hideList->join (" 'or' ") << "on the next round.";
                         }
-#if 0
+        #if 0
                         qDebug() << "(ling) [Meaning] Flags> hide: (" << l_hide
-                             << ") hideThis: ("   << ((l_hideThis == true) ? "yes" : "no")
-                             << ") hideOther: ("  << ((l_hideOther == true) ? "yes" : "no")
-                             << ") hideNext: ("   << l_hideNext
-                             << ") hideFilter: (" << l_hideFilter
-                             << ") skipWord: ("   << l_skipWord
-                             << ") hideList: ("   << ((l_hideList == NULL) ? "NULL" : "*") << ")"
-                             << endl << "Link sig: " << l_lnk->toString ().c_str () << endl;
-#endif
+                                 << ") hideThis: ("   << ((l_hideThis == true) ? "yes" : "no")
+                                 << ") hideOther: ("  << ((l_hideOther == true) ? "yes" : "no")
+                                 << ") hideNext: ("   << l_hideNext
+                                 << ") hideFilter: (" << l_hideFilter
+                                 << ") skipWord: ("   << l_skipWord
+                                 << ") hideList: ("   << ((l_hideList == NULL) ? "NULL" : "*") << ")"
+                                 << endl << "Link sig: " << l_lnk->toString ().c_str () << endl;
+        #endif
 
                     } else {
                         //qWarning() << "(ling) [Meaning] Linking failed ... horribly." << endl;
@@ -152,33 +178,58 @@ namespace Wintermute {
             }
 
             if ( !p_lnkVtr->empty () ) {
-                if ( ! ( p_lnkVtr->size () >= 1) || l_ndVtr.size () > 0 )
+                if ( ! ( p_lnkVtr->size () >= 1) || l_ndVtr.size () > 0 ){
+                    Q_ASSERT(Meaning::s_cnt < 5);
                     return Meaning::form ( &*p_lnkVtr, l_ndVtr );
-                else
+                }
+                else {
+                    Meaning::s_cnt = 0;
                     return new Meaning ( *p_lnkVtr );
+                }
             } else
                 return NULL;
         }
 
-        const Link* Meaning::base () const { return m_lnkVtr.back (); }
-
-        const LinkVector* Meaning::siblings () const { return &m_lnkVtr; }
-
-        void Meaning::__init(){
-            m_ontoMap.clear();
-
-            foreach (Link* l_lnk, m_lnkVtr){
-                Node* l_nd = const_cast<Node*>(l_lnk->source ());
-                m_ontoMap.insert(l_nd,l_lnk);
-            }
-
-            qDebug() << "(ling) [Meaning] Encapsulates" << m_ontoMap.uniqueKeys ();
+        const Link* Meaning::base () const {
+            return m_lnkVtr.back ();
         }
 
-        const LinkVector Meaning::isLinkedTo(const Node& p_nd) const {
-            LinkVector l_lnkVtr;
+        const LinkList* Meaning::siblings () const {
+            return &m_lnkVtr;
+        }
 
-            foreach (Link* l_lnk, m_lnkVtr){
+        const LinkList Meaning::linksAt(const int& p_lvl){
+            LinkList l_lnkVtr;
+
+            if (p_lvl > 1 && p_lvl <= levels()){
+                foreach (Link* l_lnk, m_lnkVtr){
+                    if (l_lnk->level() == p_lvl)
+                        l_lnkVtr << l_lnk;
+                    else continue;
+                }
+            } else {
+                qDebug() << "(ling) [Meaning] Out of level range.";
+            }
+
+            return l_lnkVtr;
+        }
+
+        const int Meaning::levels() const {
+            int l_lvl = 0;
+
+            foreach (const Link* l_lnk, m_lnkVtr){
+                if (l_lvl < l_lnk->level())
+                    l_lvl = l_lnk->level();
+                else continue;
+            }
+
+            return l_lvl;
+        }
+
+        const LinkList Meaning::isLinkedTo(const Node& p_nd) const {
+            LinkList l_lnkVtr;
+
+            foreach (Link* l_lnk, m_lnkVtr) {
                 if (l_lnk->source () == &p_nd)
                     l_lnkVtr << l_lnk;
             }
@@ -186,10 +237,10 @@ namespace Wintermute {
             return l_lnkVtr;
         }
 
-        const LinkVector Meaning::isLinkedBy(const Node& p_nd) const {
-            LinkVector l_lnkVtr;
+        const LinkList Meaning::isLinkedBy(const Node& p_nd) const {
+            LinkList l_lnkVtr;
 
-            foreach (Link* l_lnk, m_lnkVtr){
+            foreach (Link* l_lnk, m_lnkVtr) {
                 if (l_lnk->destination () == &p_nd)
                     l_lnkVtr << l_lnk;
             }
@@ -198,15 +249,18 @@ namespace Wintermute {
         }
 
         const QString Meaning::toText () const {
-            qDebug() << "(ling) [Meaning] Has" << m_lnkVtr.size () << "link(s).";
-
-            foreach (const Link* l_lnk, m_lnkVtr)
-                qDebug() << "(ling) [Meaning]" << l_lnk;
+            if (levels() >= 2){
+                qDebug() << "(ling) [Meaning] Has" << m_lnkVtr.size () << "link(s).";
+                foreach (const Link* l_lnk, m_lnkVtr)
+                    qDebug() << "(ling) [Meaning]" << l_lnk;
+            } else {
+                qDebug() << "(ling) [Meaning] Invalid meaning.";
+            }
 
             return QString::null;
         }
 
         Meaning::~Meaning () { }
-
     }
 }
+// kate: indent-mode cstyle; space-indent on; indent-width 4;

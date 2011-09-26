@@ -40,34 +40,146 @@ namespace Wintermute {
         struct Parser;
         struct Binding;
         struct Meaning;
+        struct Token;
 
         /**
-         * @brief Represents a vector of vector of nodes.
+         * @brief Represents a QList of NodeList objects.
+         * @see Parser::expandNodes()
          * @typedef NodeTree
          */
-        typedef QList<NodeVector> NodeTree;
+        typedef QList<NodeList> NodeTree;
 
         /**
-         * @brief Represents a collection of meanings.
+         * @brief Represents a QList of Meaning objects.
+         * @see Meaning
          * @typedef MeaningVector
          */
-        typedef QList<Meaning*> MeaningVector;
+        typedef QList<Meaning*> MeaningList;
 
         /**
-         * @brief
+         * @brief Represents a QList of Rule objects.
+         * @see Rule
          * @typedef RuleList
          */
-        typedef QList<Rule*> RuleVector;
+        typedef QList<Rule*> RuleList;
 
         /**
-         * @brief
-         *
+         * @brief Represents a QList of Binding objects.
+         * @see Binding
          * @typedef BindingVector
          */
-        typedef QList<Binding*> BindingVector;
+        typedef QList<Binding*> BindingList;
+
+        /**
+         * @brief Represents a QList of Token objects.
+         * @see Token
+         * @typedef TokenList
+         */
+        typedef QList<Token*> TokenList;
+
+        /**
+         * @brief A wrapper class over word-symbols for use of the Parser.
+         *
+         * Token objects are used by the Parser to generate more accurate
+         * interpretations of text. Originally, the Parser would break up text
+         * whenever it saw a space, and dropped all other formatting characters.
+         * With Token::form(), it can generate a list of tokens that would have a
+         * English sentence like
+         * @code
+         * My name's Tom.
+         * @endcode
+         * or even a French sentence, like
+         * @code
+         * Je m'appelle Tom.
+         * @endcode
+         * converted into sentenes with approriate linkings as shown.
+         *
+         * @dot
+            digraph L {
+                    graph [layout=dot rankdir=LR]
+
+                    My
+                    {"name's"} -> {name "'" s}
+                    {"Tom."} -> {Tom "."}
+                    My -> {"name's"} -> {"Tom."}
+            }
+         * @enddot
+         * @dot
+            digraph K {
+                    graph [layout=dot rankdir=LR]
+
+                    Je
+                    {"m'appelle"} -> {m "'" appelle}
+                    {"Tom."} -> {Tom "."}
+                    Je -> {"m'appelle"} -> {"Tom."}
+            }
+         * @enddot
+         * The Parser can then expand these tokens into their proper Node forms.
+         * @internal
+         * @class Token parser.hpp "include/wntr/ling/parser.hpp"
+         */
+        class Token : public QObject {
+            Q_OBJECT
+
+            public:
+                /**
+                 * @brief Null constructor.
+                 * @fn Token
+                 */
+                Token();
+
+                /**
+                 * @brief Copy constructor.
+                 * @fn Token
+                 * @param The Token to be copied.
+                 */
+                Token(const Token&);
+
+                /**
+                 * @brief Default constructor.
+                 * @fn Token
+                 * @param p_tok The QString that represents a token.
+                 */
+                explicit Token(const QString&);
+
+                /**
+                 * @brief Obtains the symbol of this Token.
+                 * @fn symbol
+                 */
+                const QString symbol() const;
+
+                /**
+                 * @brief Obtains the prefix of this Token.
+                 * @fn prefix
+                 */
+                const QString prefix() const;
+
+                /**
+                 * @brief Obtains the suffix of this Token.
+                 * @fn suffix
+                 */
+                const QString suffix() const;
+
+                /**
+                 * @brief Generates a list of Tokens (a TokenList) from a QString.
+                 * @fn form
+                 * @param p_str The QString to be tokenized.
+                 */
+                static const TokenList form(const QString& );
+
+            private:
+                void __init(const QString&);
+                QString m_prfx;
+                QString m_sffx;
+                QString m_data;
+        };
 
         /**
          * @brief Represents the potential connection of words by a specified rule as defined by its parent rule.
+         *
+         * Binding objects are used extenstively by Meaning objects in the formulation
+         * process of parsing,
+         *
          * @class Binding parser.hpp "include/wntr/ling/parser.hpp"
          */
         class Binding : public QObject {
@@ -234,11 +346,139 @@ namespace Wintermute {
             private:
                 void __init();
                 Rules::Chain m_chn;
-                BindingVector m_bndVtr;
+                BindingList m_bndVtr;
         };
 
         /**
          * @brief Encapsulates the primary object used to cast a simple string representing a bit of language into machine-interpretable ontological information.
+         *
+         * The Parser object handles the pre- and post-requirements of the natural
+         * language processing process. It's broken down into the following fashion:
+         * @dot
+            digraph L {
+                    graph [layout=dot rankdir=TB]
+
+                    {"Santization"}  -> {"Detection"}
+                    {"Detection"}    -> {"Expansion"}
+                    {"Expansion"}    -> {"Transversing"}
+                    {"Transversing"} -> {"Interpreting"}
+                    {"Interpreting"} -> {"Execution"}
+            }
+         * @enddot
+         *
+         * @section N01 The Process
+         * @subsection N02 Santizating the Text
+         * Wintermute goes through a partly intricate means of ensuring the real
+         * meaning of text is preserved while it's still made <b>legible</b> to the
+         * system for detection. Towards the close of santizating, a collection of
+         * Token objects are created and are passed in a TokenList for ease of use.
+         * @see Token, TokenList
+         *
+         * @subsection N03 Detecting Words in the Text
+         * Now, after santizating has been done; we now look at each token in the TokenList
+         * and determine the possible Node that's been represented by the token. Note that
+         * we aren't looking for the <i>meaning</i> of the word just yet; we're merely
+         * attempting to <i>recognize</i> the word being displayed. This is then packed
+         * into a NodeList and is used for expansion.
+         * @see Node, NodeList
+         *
+         * @subsection N04 Expanding into Paths
+         * In some languages, one word can have multiple values. Some languages don't have
+         * this issue, but other languages (like English or other Romance languages) tend
+         * to have words that when put in a sentence, hold an ambigious meaning. Such ambiguity
+         * is hard to iron out and is currently (but partly) tackled by <b>expansion</b>.
+         * Expansion is the act of Wintermute detecting the number of potential nodes in a word.
+         * For example, the English sentence, "<b>We are boys</b>", can be represented as:
+         * @dot
+            digraph L {
+                    graph [layout=dot rankdir=RL]
+
+                    {"We"} -> {"are"} -> {"boys"}
+            }
+
+         * @enddot
+         * However, the words 'We' and 'are' have more than one potential meaning in English,
+         * as shown below; thus creating an ambiguity in the sentence. Is it referring to the
+         * third person as a collection of individuals as an object (We)? Is it referring to
+         * the second person or the third person (are)?
+         * @dot
+            digraph L {
+                    graph [layout=dot rankdir=TB]
+
+                    {"We"} -> {"We-1"}
+                    {"We"} -> {"We-2"}
+                    {"We"} -> {"We-3"}
+                    {"We"} -> {"We-4"}
+
+                    {"are"} -> {"are-1"}
+                    {"are"} -> {"are-2"}
+           }
+         * @enddot
+         * This now caused our one-path sentence to potentially have <i>eight</i> different interpretations.
+         * This is shown internally as so.
+         * @dot
+            digraph L {
+                    graph [layout=dot rankdir=TB]
+
+                    {"We"} -> {"We-1"}
+                    {"We"} -> {"We-2"}
+                    {"We"} -> {"We-3"}
+                    {"We"} -> {"We-4"}
+
+                    {"are"} -> {"are-1"}
+                    {"are"} -> {"are-2"}
+
+                    {"We-1"} -> {"are-1"}
+                    {"We-2"} -> {"are-1"}
+                    {"We-3"} -> {"are-1"}
+                    {"We-4"} -> {"are-1"}
+
+                    {"We-1"} -> {"are-2"}
+                    {"We-2"} -> {"are-2"}
+                    {"We-3"} -> {"are-2"}
+                    {"We-4"} -> {"are-2"}
+
+                    {"are-1"} -> {"boys"}
+                    {"are-2"} -> {"boys"}
+          }
+         * @enddot
+         * Wintermute now goes through each path and pushes the path (not its potential Meaning) to the
+         * back of a NodeTree. These trees are used for the transversion.
+         * @see Node, NodeList, NodeTree
+         *
+         * @subsection N05 Transversing a Tree
+         * The act of Wintermute transversing over a tree is simply the back-to-back interpretation of
+         * similar sentences and then determining which sentence is more approriate for the current context.
+         * Currently, context-detection isn't in order, so only the sentences that are grammatically correct
+         * and return an equivalency of its originating form are pushed to the back of a MeaningList and
+         * passed over to the interpretation handle.
+         * @see Meaning, Binding, Rule, BindingList, RuleList, MeaningList
+         *
+         * @subsection N06 Interpretating Information
+         * After the lexicosyntactic representation (a Meaning object) of each valid sentence
+         * has been found, we transverse once more over this list to determine the potential
+         * <b>interpretation</b> of said objects. This is done by rendering the objects as
+         * ontological concepts and from there, generating a list of valid ontologic objects
+         * to be executed.
+         *
+         * @subsection N07 Execution
+         * Execution is done very similarly to how a typical computer program would be done.
+         * Currently, Wintermute would go about exeuction by discovering all of the required
+         * ontological concepts to be used by the concept (most, if not all, of which should be
+         * already loaded during the interpretation phase) and saturating the concept to hold
+         * its inherited attributes, in a fashion to how a program would external symbols from
+         * shared libraries at load-time. From there, the head-link of the Meaning object is used to go about the execution
+         * process. For example, if a sentence said, "My name is Jacky"; it'd discover the
+         * means of finding out if first the statement is logically true, on a scale, using fuzzy logic
+         * (http://en.wikipedia.org/Fuzzy_logic), of 0 to 1 (0% to 100%). The higher the rating,
+         * the more confidient Wintermute is about the statement. If confidient enough, it then
+         * generates an approriate response.
+         *
+         * @endsection
+         * There's a pantheon of errors, mistakes and complications that haven't been calculated
+         * currently into the coding that could cause subtle exceptions in interpretation, execution
+         * or even santization that'd mess up the potential output of Wintermute.
+         *
          * @attention Using Big O notation, the parser avoids running into memory intenstive operations. The typical execution size is O(n1) * ...  * O(n(x)).
          *            Typically words have only one to three definitions. But if a sentence has words with 6 different meangins and there's 40 words; things get hairy <b>fast</b>.
          * @class Parser parser.hpp "include/wntr/ling/parser.hpp"
@@ -246,13 +486,13 @@ namespace Wintermute {
         class Parser : public QObject {
             Q_OBJECT
 
-            Q_PROPERTY(string locale READ locale WRITE setLocale)
+            Q_PROPERTY(const QString locale READ locale WRITE setLocale)
 
             public:
                 /**
-                 * @brief
+                 * @brief Copy constructor.
                  * @fn Parser
-                 * @param p_prsr
+                 * @param p_prsr The Parser to be copied.
                  */
                 explicit Parser( const Parser& p_prsr ) : m_lcl(p_prsr.m_lcl) {}
 
@@ -261,7 +501,7 @@ namespace Wintermute {
                  * @fn Parser
                  * @param
                  */
-                Parser ( const string& = Wintermute::Data::Linguistics::Configuration::locale ()  );
+                Parser ( const QString& = Wintermute::Data::Linguistics::System::locale ()  );
 
                 /**
                  * @brief
@@ -273,24 +513,24 @@ namespace Wintermute {
                  * @brief
                  * @fn locale
                  */
-                const string locale() const;
+                const QString locale() const;
 
                 /**
                  * @brief
                  * @fn setLocale
                  * @param
                  */
-                void setLocale ( const string& = Wintermute::Data::Linguistics::Configuration::locale ());
+                void setLocale ( const QString& = Wintermute::Data::Linguistics::System::locale ());
 
                 /**
                  * @brief
                  * @fn parse
                  * @param
                  */
-                void parse ( const string& );
+                void parse ( const QString& );
 
             protected:
-                mutable string m_lcl;
+                mutable QString m_lcl;
 
             private:
                 /**
@@ -316,13 +556,13 @@ namespace Wintermute {
                  * @fn formNodes
                  * @param
                  */
-                NodeVector formNodes ( QStringList const & );
+                NodeList formNodes ( QStringList const & );
                 /**
                  * @brief
                  * @fn expandNodes
                  * @param
                  */
-                NodeTree expandNodes ( NodeVector const & );
+                NodeTree expandNodes ( NodeList const & );
                 /**
                  * @brief
                  * @fn expandNodes
@@ -336,14 +576,14 @@ namespace Wintermute {
                  * @fn formMeaning
                  * @param
                  */
-                const Meaning formMeaning ( const NodeVector& );
+                const Meaning formMeaning ( const NodeList& );
                 /**
                  * @brief
                  * @fn formShorthand
                  * @param
                  * @param
                  */
-                static const string formShorthand ( const NodeVector& , const Node::FormatVerbosity& = Node::FULL );
+                static const string formShorthand ( const NodeList& , const Node::FormatVerbosity& = Node::FULL );
 
             private slots:
                 void generateNode(Node*);
@@ -380,10 +620,9 @@ namespace Wintermute {
     }
 }
 
-Q_DECLARE_METATYPE(Wintermute::Linguistics::Parser)
-Q_DECLARE_METATYPE(Wintermute::Linguistics::Binding)
+Q_DECLARE_METATYPE(Wintermute::Linguistics::Token)
 Q_DECLARE_METATYPE(Wintermute::Linguistics::Rule)
-
+Q_DECLARE_METATYPE(Wintermute::Linguistics::Binding)
 
 #endif /* __PARSER_HPP__ */
 // kate: indent-mode cstyle; space-indent on; indent-width 4;
